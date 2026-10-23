@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>三角形ABCのx軸回転</title>
+<style>
+  :root { color-scheme: light; --ink:#172033; --muted:#5d687c; --line:#d8deea; --accent:#1769aa; }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:system-ui,-apple-system,"Segoe UI",sans-serif; background:#f3f6fb; color:var(--ink); }
+  header { padding:20px 24px 14px; background:#fff; border-bottom:1px solid var(--line); }
+  h1 { font-size:clamp(1.25rem,2.4vw,1.8rem); margin:0 0 8px; }
+  header p { margin:0; color:var(--muted); }
+  main { display:grid; grid-template-columns:minmax(260px,320px) minmax(0,1fr); gap:16px; padding:16px; max-width:1500px; margin:auto; }
+  .panel,.view { background:#fff; border:1px solid var(--line); border-radius:14px; box-shadow:0 3px 12px #1b31500b; }
+  .panel { padding:18px; align-self:start; }
+  .panel h2 { font-size:1.05rem; margin:0 0 12px; }
+  .control { margin:15px 0; }
+  label { display:flex; justify-content:space-between; gap:12px; font-size:.93rem; margin-bottom:7px; }
+  input[type=range] { width:100%; accent-color:var(--accent); }
+  .buttons { display:flex; flex-wrap:wrap; gap:8px; margin-top:12px; }
+  button { border:1px solid #b8c7da; border-radius:9px; padding:9px 12px; background:#fff; color:var(--ink); cursor:pointer; font:inherit; }
+  button.primary { background:var(--accent); border-color:var(--accent); color:#fff; }
+  button:hover { filter:brightness(.97); }
+  .check { display:flex; align-items:center; gap:8px; margin:10px 0; font-size:.92rem; }
+  .check input { accent-color:var(--accent); }
+  .note { background:#f2f7fc; padding:11px 12px; border-radius:9px; color:#34445c; font-size:.88rem; line-height:1.55; }
+  .right { display:grid; grid-template-rows:minmax(420px,1fr) auto; gap:16px; min-width:0; }
+  .view { min-width:0; overflow:hidden; }
+  .viewhead { display:flex; justify-content:space-between; gap:12px; align-items:center; padding:12px 16px; border-bottom:1px solid var(--line); }
+  .viewhead h2 { margin:0; font-size:1rem; }
+  .viewhead span { color:var(--muted); font-size:.82rem; }
+  #scene { width:100%; height:clamp(420px,62vh,720px); display:block; touch-action:pan-y; }
+  .bottom { padding:14px 16px; line-height:1.65; }
+  .bottom h2 { font-size:1rem; margin:0 0 8px; }
+  .equations { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; }
+  .eq { padding:10px 12px; background:#f7f9fc; border-radius:9px; font-size:.92rem; overflow-wrap:anywhere; }
+  .legend { display:flex; gap:14px; flex-wrap:wrap; margin-top:10px; color:var(--muted); font-size:.85rem; }
+  .dot { display:inline-block; width:10px; height:10px; border-radius:50%; margin-right:5px; }
+  @media(max-width:850px) { main { grid-template-columns:1fr; } .right { grid-template-rows:auto auto; } #scene { height:58vh; min-height:360px; } }
+  @media(max-width:520px) { header { padding:16px; } main { padding:10px; gap:10px; } .equations { grid-template-columns:1fr; } .viewhead { align-items:flex-start; flex-direction:column; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>三角形 ABC を x 軸のまわりに1回転</h1>
+  <p>右手系（x × y = z）で表示。z軸を上向き、x軸を手前側に見せ、三角形の回転領域を観察します。</p>
+</header>
+<main>
+  <aside class="panel">
+    <h2>表示・操作</h2>
+    <div class="control">
+      <label for="angle">回転角 <strong id="angleVal">360°</strong></label>
+      <input id="angle" type="range" min="0" max="360" step="2" value="360">
+    </div>
+    <div class="control">
+      <label for="resolution">回転の分割数 <strong id="resVal">72</strong></label>
+      <input id="resolution" type="range" min="12" max="144" step="12" value="72">
+    </div>
+    <label class="check"><input id="showTri" type="checkbox" checked> 元の三角形を表示</label>
+    <label class="check"><input id="showWire" type="checkbox"> 回転面のメッシュを表示</label>
+    <label class="check"><input id="showAxis" type="checkbox" checked> 座標軸を表示</label>
+    <div class="buttons">
+      <button class="primary" id="play">回転アニメーション</button>
+      <button id="reset">初期表示に戻す</button>
+    </div>
+    <div class="note" style="margin-top:16px">
+      <b>視点操作</b><br>
+      マウスドラッグ：回転<br>
+      ホイール：拡大・縮小<br>
+      スマートフォン：ドラッグで視点変更
+    </div>
+    <div class="note" style="margin-top:10px">
+      <b>右手系の確認</b><br>
+      x 軸は手前側から見える初期視点、z 軸は鉛直上向きです。正の回転は右ねじの法則に従います（x × y = z）。各軸の矢印は正方向を表します。<br><br>
+      <b>立体の見方</b><br>
+      A は x 軸から離れた位置にあり、B・C は x 軸上ではなく x=0 平面内にあります。各点が x 軸のまわりを回ると円を描き、三角形内部の各点が作る円の集まりが回転領域になります。
+    </div>
+  </aside>
+  <section class="right">
+    <div class="view">
+      <div class="viewhead"><h2>3次元回転領域</h2><span id="status">回転角：360°</span></div>
+      <canvas id="scene"></canvas>
+    </div>
+    <div class="view bottom">
+      <h2>頂点と回転の情報</h2>
+      <div class="equations">
+        <div class="eq"><b>A</b> = (2, 1, 2)<br><b>B</b> = (0, 3, 0)<br><b>C</b> = (0, −3, 0)</div>
+        <div class="eq"><b>右手系の x 軸まわりの回転</b><br>(x,y,z) → (x, y cos θ − z sin θ, y sin θ + z cos θ)<br><small>x × y = z</small></div>
+      </div>
+      <div class="legend">
+        <span><i class="dot" style="background:#277da1"></i>回転領域</span>
+        <span><i class="dot" style="background:#f28e2b"></i>元の三角形</span>
+        <span><i class="dot" style="background:#c23b52"></i>頂点 A</span>
+      </div>
+    </div>
+  </section>
+</main>
+<script>
+(() => {
+ const canvas=document.getElementById('scene'), ctx=canvas.getContext('2d');
+ const angle=document.getElementById('angle'), angleVal=document.getElementById('angleVal');
+ const resolution=document.getElementById('resolution'), resVal=document.getElementById('resVal');
+ const showTri=document.getElementById('showTri'), showWire=document.getElementById('showWire'), showAxis=document.getElementById('showAxis');
+ const status=document.getElementById('status');
+ const A=[2,1,2], B=[0,3,0], C=[0,-3,0];
+ // 初期視点は +x 側から見下ろす設定。z は鉛直上向き。
+ let yaw=0.65, pitch=-0.42, zoom=1, drag=null, anim=false, raf=0, last=0;
+ const mix=(a,b,t)=>a.map((v,i)=>v*(1-t)+b[i]*t);
+ // 右手系の x 軸まわりの正回転（右ねじの向き）
+ const rotateX=(p,t)=>[p[0],p[1]*Math.cos(t)-p[2]*Math.sin(t),p[1]*Math.sin(t)+p[2]*Math.cos(t)];
+ function project(p,w,h){
+   // 右手系の世界座標を維持する。z が鉛直上向き、x 軸が手前側に見える視点。
+   // 視点変換だけを行い、座標そのものの符号や右手系は反転させない。
+   const cy=Math.cos(yaw),sy=Math.sin(yaw),cp=Math.cos(pitch),sp=Math.sin(pitch);
+   const x=p[0], y=p[1], z=p[2];
+   const xx=cy*x-sy*y, yy=sy*x+cy*y;
+   const screenY=cp*z-sp*yy, depth=sp*z+cp*yy;
+   const scale=Math.min(w/9.2,h/7.8)*zoom;
+   return {x:w/2+xx*scale,y:h/2-screenY*scale,depth,scale};
+ }
+ function resize(){
+   const r=canvas.getBoundingClientRect(), dpr=Math.min(window.devicePixelRatio||1,2);
+   canvas.width=Math.max(1,Math.round(r.width*dpr)); canvas.height=Math.max(1,Math.round(r.height*dpr));
+   ctx.setTransform(dpr,0,0,dpr,0,0); draw();
+ }
+ function line3(a,b,color,width=1,dash=[]){
+   const r=canvas.getBoundingClientRect(),p=project(a,r.width,r.height),q=project(b,r.width,r.height);
+   ctx.beginPath();ctx.setLineDash(dash);ctx.strokeStyle=color;ctx.lineWidth=width;ctx.moveTo(p.x,p.y);ctx.lineTo(q.x,q.y);ctx.stroke();ctx.setLineDash([]);
+ }
+ function polygon3(points,fill,stroke,alpha=1){
+   const r=canvas.getBoundingClientRect(), ps=points.map(p=>project(p,r.width,r.height));
+   ctx.save();ctx.globalAlpha=alpha;ctx.beginPath();ps.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y));ctx.closePath();
+   ctx.fillStyle=fill;ctx.fill();if(stroke){ctx.strokeStyle=stroke;ctx.lineWidth=.8;ctx.stroke();}ctx.restore();
+ }
+ function arrow3(a,b,color,width=2){
+   line3(a,b,color,width);
+   const r=canvas.getBoundingClientRect(),p=project(a,r.width,r.height),q=project(b,r.width,r.height);
+   const ang=Math.atan2(q.y-p.y,q.x-p.x), len=8;
+   ctx.beginPath();ctx.moveTo(q.x,q.y);ctx.lineTo(q.x-len*Math.cos(ang-0.45),q.y-len*Math.sin(ang-0.45));ctx.lineTo(q.x-len*Math.cos(ang+0.45),q.y-len*Math.sin(ang+0.45));ctx.closePath();ctx.fillStyle=color;ctx.fill();
+ }
+ function point(p,color,label){
+   const r=canvas.getBoundingClientRect(),q=project(p,r.width,r.height);
+   ctx.beginPath();ctx.arc(q.x,q.y,4,0,Math.PI*2);ctx.fillStyle=color;ctx.fill();
+   ctx.font='bold 13px system-ui';ctx.fillStyle='#172033';ctx.fillText(label,q.x+7,q.y-7);
+ }
+ function draw(){
+   const r=canvas.getBoundingClientRect(),w=r.width,h=r.height;
+   if(!w||!h)return;
+   ctx.clearRect(0,0,w,h);ctx.fillStyle='#fbfdff';ctx.fillRect(0,0,w,h);
+   // faint floor grid
+   for(let i=-4;i<=4;i++){
+     line3([-4,i,0],[4,i,0],'#e7edf5',.7);
+     line3([i,-4,0],[i,4,0],'#e7edf5',.7);
+   }
+   if(showAxis.checked){
+     arrow3([-4,0,0],[4,0,0],'#dc4b4b',2);
+     arrow3([0,-4,0],[0,4,0],'#4b9b62',1.4);
+     arrow3([0,0,-4],[0,0,4],'#477bd1',1.8);
+     const x=project([4,0,0],w,h), y=project([0,4,0],w,h), z=project([0,0,4],w,h);
+     ctx.font='bold 13px system-ui';ctx.fillStyle='#c33';ctx.fillText('x',x.x-8,x.y-8);ctx.fillStyle='#38834e';ctx.fillText('y',y.x+6,y.y);ctx.fillStyle='#3268bb';ctx.fillText('z ↑',z.x+6,z.y);
+   }
+   const maxT=Number(angle.value)*Math.PI/180, n=Number(resolution.value);
+   // Sweep the triangular filled region. Each triangle is subdivided into a grid,
+   // then each sample is swept around x. A translucent point-cloud-like volume is
+   // represented by many small projected patches for a robust no-library renderer.
+   const pts=[];
+   const nu=24, nv=24;
+   for(let i=0;i<=nu;i++){
+     for(let j=0;j<=nv-i;j++){
+       const u=i/nu, v=j/nu;
+       pts.push([A[0]*(1-u-v)+B[0]*u+C[0]*v,
+                 A[1]*(1-u-v)+B[1]*u+C[1]*v,
+                 A[2]*(1-u-v)+B[2]*u+C[2]*v]);
+     }
+   }
+   // Render swept circles for a triangular lattice of points, with small dots.
+   // Full revolution produces the union; partial revolution illustrates the sweep.
+   const step=Math.max(1,Math.floor(n/36));
+   for(let k=0;k<=n;k+=step){
+     const t=maxT*k/n;
+     for(let idx=0;idx<pts.length;idx++){
+       if(idx%2 && k% (step*2)!==0)continue;
+       const q=project(rotateX(pts[idx],t),w,h);
+       ctx.fillStyle='rgba(39,125,161,0.10)';
+       ctx.fillRect(q.x-1.2,q.y-1.2,2.4,2.4);
+     }
+   }
+   // Swept boundary sheets along AB, AC and BC, built as translucent quads.
+   const edgeCount=30, sectors=Math.max(1,Math.ceil(n*maxT/(2*Math.PI)));
+   for(const [P,Q] of [[A,B],[A,C],[B,C]]){
+     for(let i=0;i<edgeCount;i++){
+       const p=mix(P,Q,i/edgeCount), q=mix(P,Q,(i+1)/edgeCount);
+       for(let k=0;k<n;k+=Math.max(1,Math.floor(n/60))){
+         const t1=maxT*k/n,t2=maxT*Math.min(n,k+Math.max(1,Math.floor(n/60)))/n;
+         polygon3([rotateX(p,t1),rotateX(q,t1),rotateX(q,t2),rotateX(p,t2)],'rgba(39,125,161,0.045)','#277da1',showWire.checked?0.55:0.18);
+       }
+     }
+   }
+   // original triangle, drawn on top
+   if(showTri.checked){
+     polygon3([A,B,C],'rgba(242,142,43,0.22)','#e88924',1);
+     line3(A,B,'#e88924',2.5);line3(B,C,'#e88924',2.5);line3(C,A,'#e88924',2.5);
+     point(A,'#c23b52','A');point(B,'#e88924','B');point(C,'#e88924','C');
+   }
+   status.textContent='回転角：'+angle.value+'°';
+ }
+ function tick(ts){
+   if(!anim)return;
+   if(ts-last>35){angle.value=String((Number(angle.value)+2)%362);if(Number(angle.value)>360)angle.value=0;angleVal.textContent=angle.value+'°';last=ts;draw();}
+   raf=requestAnimationFrame(tick);
+ }
+ angle.addEventListener('input',()=>{angleVal.textContent=angle.value+'°';draw();});
+ resolution.addEventListener('input',()=>{resVal.textContent=resolution.value;draw();});
+ [showTri,showWire,showAxis].forEach(el=>el.addEventListener('change',draw));
+ document.getElementById('play').addEventListener('click',()=>{
+   anim=!anim;document.getElementById('play').textContent=anim?'アニメーション停止':'回転アニメーション';
+   if(anim){last=0;raf=requestAnimationFrame(tick);}else cancelAnimationFrame(raf);
+ });
+ document.getElementById('reset').addEventListener('click',()=>{
+   anim=false;cancelAnimationFrame(raf);document.getElementById('play').textContent='回転アニメーション';
+   angle.value=360;angleVal.textContent='360°';resolution.value=72;resVal.textContent='72';
+   showTri.checked=true;showWire.checked=false;showAxis.checked=true;yaw=.65;pitch=-.42;zoom=1;draw();
+ });
+ canvas.addEventListener('pointerdown',e=>{drag={x:e.clientX,y:e.clientY,id:e.pointerId};canvas.setPointerCapture(e.pointerId);});
+ canvas.addEventListener('pointermove',e=>{if(!drag)return; yaw+=(e.clientX-drag.x)*.008;pitch=Math.max(-1.45,Math.min(1.45,pitch+(e.clientY-drag.y)*.008));drag.x=e.clientX;drag.y=e.clientY;draw();});
+ canvas.addEventListener('pointerup',()=>drag=null);canvas.addEventListener('pointercancel',()=>drag=null);
+ canvas.addEventListener('wheel',e=>{e.preventDefault();zoom=Math.max(.45,Math.min(2.5,zoom*(e.deltaY<0?1.08:.92)));draw();},{passive:false});
+ window.addEventListener('resize',resize);resize();
+})();
+</script>
+</body>
+</html>
